@@ -77,3 +77,12 @@ tfoot tr {
 .controls.enable .control-button {
   cursor: pointer;
 }
+
+.github {
+  bottom: 0;
+  color: var(--subtle-color);
+  padding: 5px;
+  position: fixed;
+  right: 0;
+  text-decoration: none;
+}

@@ -81,6 +81,8 @@ function renderRoom(roomId: string) {
 		localStorage.setItem("name", name.value);
 	});
 
+	(create(prnt, "a", "[GitHub]", ["github"]) as HTMLAnchorElement).href = "https://github.com/firestuff/slidetogether";
+
 	addEventListener("unload", () => remove(roomId, clientId!));
 
 	announce(roomId, clientId!, adminSecret, name);

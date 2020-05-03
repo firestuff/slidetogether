@@ -20,6 +20,7 @@ function renderRoom(roomId) {
     name.addEventListener("change", () => {
         localStorage.setItem("name", name.value);
     });
+    create(prnt, "a", "[GitHub]", ["github"]).href = "https://github.com/firestuff/slidetogether";
     addEventListener("unload", () => remove(roomId, clientId));
     announce(roomId, clientId, adminSecret, name);
     watch(roomId, clientId, adminSecret, prnt);
