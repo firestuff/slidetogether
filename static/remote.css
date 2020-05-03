@@ -1,0 +1,79 @@
+:root {
+  --background-color: #222831;
+  --subtle-color: #2d4059;
+  --normal-color: #eee;
+  --highlight-color: #d65a31;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--normal-color);
+  font-family: Courier, monospace;
+  font-size: 16px;
+  line-height: 1.4;
+  margin: 20px;
+}
+
+input {
+  background-color: var(--background-color);
+  border: 1px dotted var(--highlight-color);
+  color: var(--normal-color);
+  font-family: Courier, monospace;
+  font-size: 16px;
+  margin: 5px;
+  padding: 5px;
+}
+
+table {
+  border: 3px solid var(--highlight-color);
+  border-collapse: collapse;
+  margin-top: 30px;
+}
+
+th,
+td {
+  border: 1px solid var(--subtle-color);
+  padding: 7px;
+}
+
+thead,
+tfoot tr {
+  border: 3px solid var(--highlight-color);
+}
+
+.admin,
+.active {
+  cursor: pointer;
+  opacity: 0.3;
+  user-select: none;
+}
+
+.enable {
+  opacity: 1 !important;
+}
+
+.admin.enable {
+  cursor: default;
+}
+
+.controls {
+  opacity: 0.3;
+}
+
+.control-button {
+  border: 3px solid var(--highlight-color);
+  display: inline-block;
+  margin: 20px;
+  padding: 10px;
+  transition: all 0.8s;
+  user-select: none;
+}
+
+.control-button:active {
+  background: var(--subtle-color);
+  transition: none;
+}
+
+.controls.enable .control-button {
+  cursor: pointer;
+}

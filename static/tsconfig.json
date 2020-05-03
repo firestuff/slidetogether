@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"outFile": "remote.js",
+		"strict": true,
+		"target": "es2017"
+	},
+	"files": [
+		"remote.ts"
+	]
+}
+

@@ -1,0 +1,10 @@
+{
+	"extends": "tslint:recommended",
+	"rules": {
+		"interface-name": false,
+		"max-line-length": false,
+		"no-bitwise": false,
+		"no-console": false,
+		"no-unused-expression": false
+	}
+}
