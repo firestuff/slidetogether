@@ -18,7 +18,7 @@ url = urllib.parse.urlparse(sys.argv[1])
 qs = urllib.parse.parse_qs(url.query)
 
 if 'room' not in qs or len(qs['room']) != 1:
-    print(f'invald url: {sys.argv[1]}')
+    print(f'invalid url: {sys.argv[1]}')
 
 room = qs['room'][0]
 
