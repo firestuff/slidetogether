@@ -2,7 +2,7 @@
 
 [slidetogether.io](https://slidetogether.io/) is a service for controlling a single presentation from multiple remote computers. Think of is as a presentation remote that works across the Internet.
 
-The presentation computer runs a [Python client](present/present.py) which injects keystrokes. It is limited to standard presentation remote keystrokes (left & right arrows) to minimize security issues.
+Each presentation computer runs a [Python client](present/present.py) which injects keystrokes. It is limited to standard presentation remote keystrokes (left & right arrows) to minimize security issues.
 
 Remote presenters send commands from a web browser. One or more administrators control which presenters can send commands at any time.
 
