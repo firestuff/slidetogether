@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# To install dependencies:
+# pip3 install requests sseclient pyautogui
+
 import json
 import pyautogui
 import requests
