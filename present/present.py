@@ -17,6 +17,8 @@ if len(sys.argv) != 2:
     print(f'usage: {sys.argv[0]} <url>')
     sys.exit(1)
 
+pyautogui.FAILSAFE = False
+
 url = urllib.parse.urlparse(sys.argv[1])
 qs = urllib.parse.parse_qs(url.query)
 
