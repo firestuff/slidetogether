@@ -81,6 +81,7 @@ tfoot tr {
 .action {
   cursor: pointer;
   margin-left: 10px;
+  color: var(--highlight-color);
 }
 
 .github {
