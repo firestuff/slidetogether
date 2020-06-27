@@ -32,6 +32,11 @@ type adminRequest struct {
 	PublicClientId string `json:"public_client_id"`
 }
 
+type resetRequest struct {
+	RoomId         string `json:"room_id"`
+	AdminSecret    string `json:"admin_secret"`
+}
+
 type announceRequest struct {
 	RoomId      string `json:"room_id"`
 	ClientId    string `json:"client_id"`
@@ -79,6 +84,7 @@ type adminEvent struct {
 
 type standardEvent struct {
 	Active      bool   `json:"active"`
+	TimerStart  int64  `json:"timer_start"`
 	AdminSecret string `json:"admin_secret"`
 }
 
@@ -88,6 +94,7 @@ type controlEvent struct {
 
 type room struct {
 	roomId           string
+	timerStart       time.Time
 	clientById       map[string]*client
 	clientByPublicId map[string]*client
 	present          map[*presentState]bool
@@ -140,6 +147,7 @@ func main() {
 	http.HandleFunc("/api/create", create)
 	http.HandleFunc("/api/present", present)
 	http.HandleFunc("/api/remove", remove)
+	http.HandleFunc("/api/reset", reset)
 	http.HandleFunc("/api/watch", watch)
 
 	server := http.Server{
@@ -386,6 +394,29 @@ func remove(w http.ResponseWriter, r *http.Request) {
 	c.remove()
 }
 
+func reset(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	req := &resetRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	rm := getRoom(req.RoomId)
+
+	if req.AdminSecret != rm.adminSecret() {
+		http.Error(w, "invalid admin_secret", http.StatusBadRequest)
+		return
+	}
+
+	rm.timerStart = time.Now()
+	rm.updateAllClients()
+}
+
 func watch(w http.ResponseWriter, r *http.Request) {
 	ws := newWatchState(w, r)
 	if ws == nil {
@@ -436,6 +467,7 @@ func (c *client) update() {
 	e := &event{
 		StandardEvent: &standardEvent{
 			Active: c.Active,
+			TimerStart: c.room.timerStart.Unix(),
 		},
 	}
 	if c.Admin {
@@ -447,6 +479,7 @@ func (c *client) update() {
 func newRoom(roomId string) *room {
 	return &room{
 		roomId:           roomId,
+		timerStart:       time.Now(),
 		clientById:       map[string]*client{},
 		clientByPublicId: map[string]*client{},
 		present:          map[*presentState]bool{},
@@ -505,6 +538,12 @@ func (rm *room) sendControlEvent(ce *controlEvent) {
 	}
 }
 
+func (rm *room) updateAllClients() {
+	for _, client := range rm.clientById {
+		client.update()
+	}
+}
+
 func newWatchState(w http.ResponseWriter, r *http.Request) *watchState {
 	mu.Lock()
 	defer mu.Unlock()
@@ -539,6 +578,7 @@ func newWatchState(w http.ResponseWriter, r *http.Request) *watchState {
 	}
 
 	ws.client.eventChan = ws.eventChan
+	ws.client.update()
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")

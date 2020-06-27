@@ -34,12 +34,18 @@ interface RemoveRequest {
 	client_id: string;
 }
 
+interface ResetRequest {
+	room_id: string;
+	admin_secret: string;
+}
+
 interface Event {
 	standard_event?: StandardEvent;
 	admin_event?: AdminEvent;
 }
 
 interface StandardEvent {
+	timer_start?: string;
 	active?: boolean;
 	admin_secret?: string;
 }
@@ -135,6 +141,8 @@ function watch(roomId: string, clientId: string, adminSecret: string | null, prn
 
 	renderControls(roomId, clientId, adminSecret, prnt, es);
 
+	renderTimers(roomId, adminSecret, prnt, es);
+
 	if (adminSecret) {
 		renderAdmin(roomId, adminSecret, prnt, es);
 	}
@@ -180,12 +188,57 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 			controls.classList.remove("enable");
 		}
 	});
+}
 
-	const clockDiv = create(prnt, "div", "\u00a0Time: ");
+function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElement, es: EventSource) {
+	let overallStart: number | null  = null;
+
+	es.addEventListener("message", (e) => {
+		const event = JSON.parse(e.data) as Event;
+
+		if (!event.standard_event) {
+			return;
+		}
+
+		overallStart = parseInt(event.standard_event.timer_start || "0", 10) || null;
+	});
+
+	const width = 10;
+
+	const clockDiv = create(prnt, "div", "Clock: ".padStart(width, "\u00a0"));
 	const clock = create(clockDiv, "span");
+
+	const overallDiv = create(prnt, "div", "Overall: ".padStart(width, "\u00a0"));
+	const overall = create(overallDiv, "span");
+
+	if (adminSecret) {
+		const reset = create(overallDiv, "span", "↺", ["action"]);
+		reset.addEventListener("click", () => {
+			const req: ResetRequest = {
+				room_id: roomId,
+				admin_secret: adminSecret,
+			};
+
+			fetch("/api/reset", {
+				method: "POST",
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(req),
+			});
+		});
+	}
+
 	setInterval(() => {
 		const now = new Date();
-		clock.innerText = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+		clock.innerText = `${now.getHours().toString().padStart(2, "0")}h${now.getMinutes().toString().padStart(2, "0")}m${now.getSeconds().toString().padStart(2, "0")}s`;
+
+		if (overallStart) {
+			const o = Math.trunc(now.getTime() / 1000 - overallStart);
+			overall.innerText = `${Math.trunc(o / 3600).toString().padStart(2, "0")}h${Math.trunc(o % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(o % 60).toString().padStart(2, "0")}s`;
+		} else {
+			overall.innerText = "";
+		}
 	}, 250);
 }
 

@@ -78,6 +78,11 @@ tfoot tr {
   cursor: pointer;
 }
 
+.action {
+  cursor: pointer;
+  margin-left: 10px;
+}
+
 .github {
   bottom: 0;
   color: var(--subtle-color);
