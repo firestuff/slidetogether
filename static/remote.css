@@ -79,9 +79,13 @@ tfoot tr {
 }
 
 .action {
+  color: var(--highlight-color);
   cursor: pointer;
   margin-left: 10px;
-  color: var(--highlight-color);
+}
+
+.users tbody tr td:nth-child(2) {
+  text-align: right;
 }
 
 .github {

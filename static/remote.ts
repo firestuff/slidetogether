@@ -47,6 +47,7 @@ interface Event {
 interface StandardEvent {
 	timer_start?: string;
 	active?: boolean;
+	active_start?: string;
 	admin_secret?: string;
 }
 
@@ -60,6 +61,7 @@ interface Client {
 	name: string;
 	admin: boolean;
 	active: boolean;
+	active_start: string;
 }
 
 function main() {
@@ -191,7 +193,8 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 }
 
 function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElement, es: EventSource) {
-	let overallStart: number | null  = null;
+	let overallStart: number | null = null;
+	let meStart: number | null = null;
 
 	es.addEventListener("message", (e) => {
 		const event = JSON.parse(e.data) as Event;
@@ -201,6 +204,7 @@ function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElem
 		}
 
 		overallStart = parseInt(event.standard_event.timer_start || "0", 10) || null;
+		meStart = parseInt(event.standard_event.active_start || "0", 10) || null;
 	});
 
 	const width = 10;
@@ -210,6 +214,9 @@ function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElem
 
 	const overallDiv = create(prnt, "div", "Overall: ".padStart(width, "\u00a0"));
 	const overall = create(overallDiv, "span");
+
+	const meDiv = create(prnt, "div", "Me: ".padStart(width, "\u00a0"));
+	const me = create(meDiv, "span");
 
 	if (adminSecret) {
 		const reset = create(overallDiv, "span", "↺", ["action"]);
@@ -239,6 +246,13 @@ function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElem
 		} else {
 			overall.innerText = "";
 		}
+
+		if (meStart) {
+			const d = Math.trunc(now.getTime() / 1000 - meStart);
+			me.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+		} else {
+			me.innerText = "";
+		}
 	}, 250);
 }
 
@@ -247,12 +261,18 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 	const head = create(table, "thead");
 	const head1 = create(head, "tr");
 	create(head1, "th", "Name");
+	create(head1, "th", "Active Time");
 	create(head1, "th", "👑");
 	create(head1, "th", "👆");
 
 	const body = create(table, "tbody");
 
 	const rows: Map<string, HTMLTableRowElement> = new Map();
+
+	es.addEventListener("open", () => {
+		rows.clear();
+		body.innerHTML = "";
+	});
 
 	es.addEventListener("message", (e) => {
 		const event = JSON.parse(e.data) as Event;
@@ -275,6 +295,7 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 
 		row = document.createElement("tr") as HTMLTableRowElement;
 		row.dataset.name = client.name;
+		row.dataset.activeStart = client.active_start;
 
 		let before = null;
 		for (const iter of body.children) {
@@ -287,6 +308,7 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 		body.insertBefore(row, before);
 
 		create(row, "td", client.name);
+		create(row, "td");
 
 		const adminCell = create(row, "td", "👑", client.admin ? ["admin", "enable"] : ["admin"]) as HTMLTableCellElement;
 		adminCell.addEventListener("click", () => {
@@ -305,6 +327,19 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 
 		rows.set(client.public_client_id, row);
 	});
+
+	setInterval(() => {
+		const now = new Date();
+
+		for (const row of rows.values()) {
+			const cell = row.children[1] as HTMLTableCellElement;
+			const as = parseInt(row.dataset.activeStart || "0", 10) || null;
+			if (as) {
+				const d = Math.trunc(now.getTime() / 1000 - as);
+				cell.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+			}
+		}
+	}, 250);
 }
 
 function active(roomId: string, adminSecret: string, publicClientId: string, val: boolean) {

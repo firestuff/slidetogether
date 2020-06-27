@@ -65,6 +65,7 @@ type client struct {
 	Name           string `json:"name"`
 	Admin          bool   `json:"admin"`
 	Active         bool   `json:"active"`
+	ActiveStart    int64  `json:"active_start"`
 
 	clientId  string
 	room      *room
@@ -84,6 +85,7 @@ type adminEvent struct {
 
 type standardEvent struct {
 	Active      bool   `json:"active"`
+	ActiveStart int64  `json:"active_start"`
 	TimerStart  int64  `json:"timer_start"`
 	AdminSecret string `json:"admin_secret"`
 }
@@ -223,6 +225,11 @@ func active(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.Active = req.Active
+	if c.Active {
+		c.ActiveStart = time.Now().Unix()
+	} else {
+		c.ActiveStart = 0
+	}
 	c.update()
 	rm.sendAdminEvent(&adminEvent{
 		Client: c,
@@ -467,6 +474,7 @@ func (c *client) update() {
 	e := &event{
 		StandardEvent: &standardEvent{
 			Active: c.Active,
+			ActiveStart: c.ActiveStart,
 			TimerStart: c.room.timerStart.Unix(),
 		},
 	}

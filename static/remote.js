@@ -104,18 +104,22 @@ function renderControls(roomId, clientId, adminSecret, prnt, es) {
 }
 function renderTimers(roomId, adminSecret, prnt, es) {
     let overallStart = null;
+    let meStart = null;
     es.addEventListener("message", (e) => {
         const event = JSON.parse(e.data);
         if (!event.standard_event) {
             return;
         }
         overallStart = parseInt(event.standard_event.timer_start || "0", 10) || null;
+        meStart = parseInt(event.standard_event.active_start || "0", 10) || null;
     });
     const width = 10;
     const clockDiv = create(prnt, "div", "Clock: ".padStart(width, "\u00a0"));
     const clock = create(clockDiv, "span");
     const overallDiv = create(prnt, "div", "Overall: ".padStart(width, "\u00a0"));
     const overall = create(overallDiv, "span");
+    const meDiv = create(prnt, "div", "Me: ".padStart(width, "\u00a0"));
+    const me = create(meDiv, "span");
     if (adminSecret) {
         const reset = create(overallDiv, "span", "↺", ["action"]);
         reset.addEventListener("click", () => {
@@ -142,6 +146,13 @@ function renderTimers(roomId, adminSecret, prnt, es) {
         else {
             overall.innerText = "";
         }
+        if (meStart) {
+            const d = Math.trunc(now.getTime() / 1000 - meStart);
+            me.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+        }
+        else {
+            me.innerText = "";
+        }
     }, 250);
 }
 function renderAdmin(roomId, adminSecret, prnt, es) {
@@ -149,10 +160,15 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
     const head = create(table, "thead");
     const head1 = create(head, "tr");
     create(head1, "th", "Name");
+    create(head1, "th", "Active Time");
     create(head1, "th", "👑");
     create(head1, "th", "👆");
     const body = create(table, "tbody");
     const rows = new Map();
+    es.addEventListener("open", () => {
+        rows.clear();
+        body.innerHTML = "";
+    });
     es.addEventListener("message", (e) => {
         const event = JSON.parse(e.data);
         if (!event.admin_event) {
@@ -169,6 +185,7 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         }
         row = document.createElement("tr");
         row.dataset.name = client.name;
+        row.dataset.activeStart = client.active_start;
         let before = null;
         for (const iter of body.children) {
             const iterRow = iter;
@@ -179,6 +196,7 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         }
         body.insertBefore(row, before);
         create(row, "td", client.name);
+        create(row, "td");
         const adminCell = create(row, "td", "👑", client.admin ? ["admin", "enable"] : ["admin"]);
         adminCell.addEventListener("click", () => {
             if (!client.admin) {
@@ -194,6 +212,17 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         });
         rows.set(client.public_client_id, row);
     });
+    setInterval(() => {
+        const now = new Date();
+        for (const row of rows.values()) {
+            const cell = row.children[1];
+            const as = parseInt(row.dataset.activeStart || "0", 10) || null;
+            if (as) {
+                const d = Math.trunc(now.getTime() / 1000 - as);
+                cell.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+            }
+        }
+    }, 250);
 }
 function active(roomId, adminSecret, publicClientId, val) {
     const req = {
