@@ -100,6 +100,12 @@ function renderControls(roomId, clientId, adminSecret, prnt, es) {
             controls.classList.remove("enable");
         }
     });
+    const clockDiv = create(prnt, "div", "\u00a0Time: ");
+    const clock = create(clockDiv, "span");
+    setInterval(() => {
+        const now = new Date();
+        clock.innerText = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+    }, 250);
 }
 function renderAdmin(roomId, adminSecret, prnt, es) {
     const table = create(prnt, "table", undefined, ["users"]);

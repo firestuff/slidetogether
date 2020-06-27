@@ -180,6 +180,13 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 			controls.classList.remove("enable");
 		}
 	});
+
+	const clockDiv = create(prnt, "div", "\u00a0Time: ");
+	const clock = create(clockDiv, "span");
+	setInterval(() => {
+		const now = new Date();
+		clock.innerText = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+	}, 250);
 }
 
 function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es: EventSource) {
