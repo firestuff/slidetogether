@@ -26,7 +26,7 @@ function renderRoom(roomId) {
     watch(roomId, clientId, adminSecret, prnt);
 }
 function newRoom() {
-    fetch("/api/create", { method: "POST" })
+    fetch("api/create", { method: "POST" })
         .then(resp => resp.json())
         .then(data => {
         const resp = data;
@@ -43,7 +43,7 @@ function announce(roomId, clientId, adminSecret, name) {
         admin_secret: adminSecret,
         name: name.value,
     };
-    fetch("/api/announce", {
+    fetch("api/announce", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -55,7 +55,7 @@ function announce(roomId, clientId, adminSecret, name) {
     });
 }
 function watch(roomId, clientId, adminSecret, prnt) {
-    const url = new URL("/api/watch", location.href);
+    const url = new URL("api/watch", location.href);
     url.searchParams.set("room_id", roomId);
     url.searchParams.set("client_id", clientId);
     if (adminSecret) {
@@ -127,7 +127,7 @@ function renderTimers(roomId, adminSecret, prnt, es) {
                 room_id: roomId,
                 admin_secret: adminSecret,
             };
-            fetch("/api/reset", {
+            fetch("api/reset", {
                 method: "POST",
                 headers: {
                     'Content-Type': 'application/json'
@@ -231,7 +231,7 @@ function active(roomId, adminSecret, publicClientId, val) {
         public_client_id: publicClientId,
         active: val,
     };
-    fetch("/api/active", {
+    fetch("api/active", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -245,7 +245,7 @@ function admin(roomId, adminSecret, publicClientId) {
         admin_secret: adminSecret,
         public_client_id: publicClientId,
     };
-    fetch("/api/admin", {
+    fetch("api/admin", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -262,7 +262,7 @@ function control(roomId, clientId, controls, ctrl) {
         client_id: clientId,
         control: ctrl,
     };
-    fetch("/api/control", {
+    fetch("api/control", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -286,7 +286,7 @@ function remove(roomId, clientId) {
         room_id: roomId,
         client_id: clientId,
     };
-    navigator.sendBeacon("/api/remove", JSON.stringify(req));
+    navigator.sendBeacon("api/remove", JSON.stringify(req));
 }
 function uuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {

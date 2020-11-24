@@ -128,6 +128,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	keyFlag := flag.String("key", "", "secret key")
+	bindFlag := flag.String("bind", ":2000", "host:port to listen on")
 
 	flag.Parse()
 
@@ -153,7 +154,7 @@ func main() {
 	http.HandleFunc("/api/watch", watch)
 
 	server := http.Server{
-		Addr: ":2000",
+		Addr: *bindFlag,
 	}
 	err := server.ListenAndServe()
 	if err != nil {
