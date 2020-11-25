@@ -30,7 +30,7 @@ room = qs['room'][0]
 presentUrl = urllib.parse.urlunparse([
     url.scheme,
     url.netloc,
-    '/api/present',
+    url.path + 'api/present',
     url.params,
     urllib.parse.urlencode({'room_id': room}),
     url.fragment,
