@@ -99,7 +99,7 @@ function renderRoom(roomId: string) {
 }
 
 function newRoom() {
-	fetch("/api/create", {method: "POST"})
+	fetch("api/create", {method: "POST"})
 	.then(resp => resp.json())
 	.then(data => {
 		const resp = data as CreateResponse;
@@ -120,7 +120,7 @@ function announce(roomId: string, clientId: string, adminSecret: string | null, 
 		name: name.value,
 	};
 
-	fetch("/api/announce", {
+	fetch("api/announce", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -129,11 +129,14 @@ function announce(roomId: string, clientId: string, adminSecret: string | null, 
 	})
 	.then(() => {
 		setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
+	})
+	.catch(() => {
+		setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
 	});
 }
 
 function watch(roomId: string, clientId: string, adminSecret: string | null, prnt: HTMLElement) {
-	const url = new URL("/api/watch", location.href);
+	const url = new URL("api/watch", location.href);
 	url.searchParams.set("room_id", roomId);
 	url.searchParams.set("client_id", clientId);
 	if (adminSecret) {
@@ -226,7 +229,7 @@ function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElem
 				admin_secret: adminSecret,
 			};
 
-			fetch("/api/reset", {
+			fetch("api/reset", {
 				method: "POST",
 				headers: {
 					'Content-Type': 'application/json'
@@ -350,7 +353,7 @@ function active(roomId: string, adminSecret: string, publicClientId: string, val
 		active: val,
 	};
 
-	fetch("/api/active", {
+	fetch("api/active", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -366,7 +369,7 @@ function admin(roomId: string, adminSecret: string, publicClientId: string) {
 		public_client_id: publicClientId,
 	};
 
-	fetch("/api/admin", {
+	fetch("api/admin", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -386,7 +389,7 @@ function control(roomId: string, clientId: string, controls: HTMLElement, ctrl: 
 		control: ctrl,
 	};
 
-	fetch("/api/control", {
+	fetch("api/control", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -415,7 +418,7 @@ function remove(roomId: string, clientId: string) {
 		room_id: roomId,
 		client_id: clientId,
 	}
-	navigator.sendBeacon("/api/remove", JSON.stringify(req));
+	navigator.sendBeacon("api/remove", JSON.stringify(req));
 }
 
 function uuid() {

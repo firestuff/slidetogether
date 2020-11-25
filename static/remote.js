@@ -52,6 +52,9 @@ function announce(roomId, clientId, adminSecret, name) {
     })
         .then(() => {
         setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
+    })
+        .catch(() => {
+        setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
     });
 }
 function watch(roomId, clientId, adminSecret, prnt) {
