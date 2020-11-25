@@ -176,7 +176,7 @@ func scan() {
 	mu.Lock()
 	defer mu.Unlock()
 
-	grace := 30 * time.Second
+	grace := 10 * time.Second
 
 	for _, rm := range roomById {
 		for _, c := range rm.clientById {
@@ -351,7 +351,7 @@ func present(w http.ResponseWriter, r *http.Request) {
 	}
 
 	closeChan := w.(http.CloseNotifier).CloseNotify()
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	for {
 		select {
@@ -424,11 +424,8 @@ func watch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: refcount client so it stays alive from just a watch
-	// add in registerwatch, sub in defer here
-
 	closeChan := w.(http.CloseNotifier).CloseNotify()
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	writeInitial(client, w, flusher)
 
@@ -463,6 +460,10 @@ func (c *client) sendEvent(e *event) {
 }
 
 func (c *client) remove() {
+	if c.eventChan != nil {
+		close(c.eventChan)
+	}
+
 	delete(c.room.clientById, c.ClientId)
 
 	c.room.sendAdminEvent(&adminEvent{
