@@ -102,7 +102,6 @@ type room struct {
 
 type watchState struct {
 	responseWriter http.ResponseWriter
-	request        *http.Request
 	flusher        http.Flusher
 	room           *room
 	client         *client
@@ -112,7 +111,6 @@ type watchState struct {
 
 type presentState struct {
 	responseWriter http.ResponseWriter
-	request        *http.Request
 	flusher        http.Flusher
 	room           *room
 	controlChan    chan *controlEvent
@@ -553,7 +551,6 @@ func newWatchState(w http.ResponseWriter, r *http.Request) *watchState {
 
 	ws := &watchState{
 		responseWriter: w,
-		request:        r,
 		eventChan:      make(chan *event, 100),
 	}
 
@@ -639,7 +636,6 @@ func newPresentState(w http.ResponseWriter, r *http.Request) *presentState {
 
 	ps := &presentState{
 		responseWriter: w,
-		request:        r,
 		controlChan:    make(chan *controlEvent, 100),
 	}
 
