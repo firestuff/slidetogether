@@ -189,11 +189,11 @@ func scan() {
 	mu.Lock()
 	defer mu.Unlock()
 
-	cutoff := time.Now().UTC().Add(-30 * time.Second)
+	grace := 30 * time.Second
 
 	for _, rm := range roomById {
 		for _, c := range rm.clientById {
-			if c.lastSeen.Before(cutoff) {
+			if time.Now().Sub(c.lastSeen) > grace {
 				c.remove()
 			}
 		}
