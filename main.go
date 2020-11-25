@@ -317,6 +317,7 @@ func control(w http.ResponseWriter, r *http.Request) {
 
 	if !c.Active {
 		http.Error(w, "client is not active", http.StatusBadRequest)
+		return
 	}
 
 	rm.sendControlEvent(&controlEvent{
