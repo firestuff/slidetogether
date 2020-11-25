@@ -623,8 +623,7 @@ func writeInitial(client *client, w http.ResponseWriter, flusher http.Flusher) {
 }
 
 func writeHeartbeat(w http.ResponseWriter, flusher http.Flusher) {
-	fmt.Fprintf(w, ":\n\n")
-	flusher.Flush()
+	writeEvent(&event{}, w, flusher)
 }
 
 func writeEvent(e *event, w http.ResponseWriter, flusher http.Flusher) {

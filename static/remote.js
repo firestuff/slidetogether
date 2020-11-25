@@ -74,7 +74,15 @@ function watch(roomId, clientId, adminSecret, prnt) {
 }
 function createEventSource(url) {
     const es = new EventSource(url.toString());
+    let lastMessage = performance.now();
+    const intId = setInterval(() => {
+        if (performance.now() - lastMessage > 10000) {
+            console.warn("timeout");
+            es.dispatchEvent(new Event("error"));
+        }
+    }, 1000);
     es.addEventListener("open", () => {
+        console.info("connected");
         messageBus.dispatchEvent(new Event("open"));
     });
     es.addEventListener("message", (e) => {
@@ -82,10 +90,12 @@ function createEventSource(url) {
             data: e.data,
             lastEventId: e.lastEventId,
         }));
+        lastMessage = performance.now();
     });
     es.addEventListener("error", () => {
         console.warn("disconnected");
         es.close();
+        clearInterval(intId);
         setTimeout(() => createEventSource(url), 3000);
         messageBus.dispatchEvent(new Event("error"));
     });
