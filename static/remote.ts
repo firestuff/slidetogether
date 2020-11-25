@@ -1,14 +1,15 @@
 interface ActiveRequest {
 	room_id: string;
 	admin_secret: string;
-	public_client_id: string;
+	client_id: string;
 	active: boolean;
+	solo: boolean;
 }
 
 interface AdminRequest {
 	room_id: string;
 	admin_secret: string;
-	public_client_id: string;
+	client_id: string;
 }
 
 interface AnnounceRequest {
@@ -34,13 +35,20 @@ interface RemoveRequest {
 	client_id: string;
 }
 
+interface ResetRequest {
+	room_id: string;
+	admin_secret: string;
+}
+
 interface Event {
 	standard_event?: StandardEvent;
 	admin_event?: AdminEvent;
 }
 
 interface StandardEvent {
+	timer_start?: string;
 	active?: boolean;
+	active_start?: string;
 	admin_secret?: string;
 }
 
@@ -50,11 +58,14 @@ interface AdminEvent {
 }
 
 interface Client {
-	public_client_id: string;
+	client_id: string;
 	name: string;
 	admin: boolean;
 	active: boolean;
+	active_start: string;
 }
+
+const messageBus = new EventTarget();
 
 function main() {
 	const url = new URL(location.href);
@@ -91,7 +102,7 @@ function renderRoom(roomId: string) {
 }
 
 function newRoom() {
-	fetch("/api/create", {method: "POST"})
+	fetch("api/create", {method: "POST"})
 	.then(resp => resp.json())
 	.then(data => {
 		const resp = data as CreateResponse;
@@ -112,7 +123,7 @@ function announce(roomId: string, clientId: string, adminSecret: string | null, 
 		name: name.value,
 	};
 
-	fetch("/api/announce", {
+	fetch("api/announce", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -121,26 +132,69 @@ function announce(roomId: string, clientId: string, adminSecret: string | null, 
 	})
 	.then(() => {
 		setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
+	})
+	.catch(() => {
+		setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
 	});
 }
 
 function watch(roomId: string, clientId: string, adminSecret: string | null, prnt: HTMLElement) {
-	const url = new URL("/api/watch", location.href);
+	const url = new URL("api/watch", location.href);
 	url.searchParams.set("room_id", roomId);
 	url.searchParams.set("client_id", clientId);
 	if (adminSecret) {
 		url.searchParams.set("admin_secret", adminSecret);
 	}
-	const es = new EventSource(url.toString());
+	createEventSource(url);
 
-	renderControls(roomId, clientId, adminSecret, prnt, es);
+	renderControls(roomId, clientId, adminSecret, prnt);
+
+	renderTimers(roomId, adminSecret, prnt);
 
 	if (adminSecret) {
-		renderAdmin(roomId, adminSecret, prnt, es);
+		renderAdmin(roomId, adminSecret, prnt);
 	}
 }
 
-function renderControls(roomId: string, clientId: string, adminSecret: string | null, prnt: HTMLElement, es: EventSource) {
+function createEventSource(url: URL) {
+	const es = new EventSource(url.toString());
+
+	let lastMessage = performance.now();
+
+	const intId = setInterval(() => {
+		if (performance.now() - lastMessage > 10000) {
+			console.warn("timeout");
+			es.dispatchEvent(new Event("error"));
+		}
+	}, 1000);
+
+	es.addEventListener("open", () => {
+		console.info("connected");
+		messageBus.dispatchEvent(new Event("open"));
+	});
+
+	es.addEventListener("message", (e) => {
+		messageBus.dispatchEvent(new MessageEvent("message", {
+			data: e.data,
+			lastEventId: e.lastEventId,
+		}));
+
+		lastMessage = performance.now();
+	});
+
+	es.addEventListener("error", () => {
+		console.warn("disconnected");
+
+		es.close();
+		clearInterval(intId);
+
+		setTimeout(() => createEventSource(url), 3000);
+
+		messageBus.dispatchEvent(new Event("error"));
+	});
+}
+
+function renderControls(roomId: string, clientId: string, adminSecret: string | null, prnt: HTMLElement) {
 	const controls = create(prnt, "div", undefined, ["controls"]) as HTMLDivElement;
 
   	const left = create(controls, "span", "<<<", ["control-button"]) as HTMLDivElement;
@@ -162,7 +216,8 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 		}
 	});
 
-	es.addEventListener("message", (e) => {
+	messageBus.addEventListener("message", (ev) => {
+		const e = ev as MessageEvent;
 		const event = JSON.parse(e.data) as Event;
 
 		if (!event.standard_event) {
@@ -182,19 +237,103 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 	});
 }
 
-function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es: EventSource) {
+function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElement) {
+	let overallStart: number | null = null;
+	let meStart: number | null = null;
+
+	messageBus.addEventListener("message", (ev) => {
+		const e = ev as MessageEvent;
+		const event = JSON.parse(e.data) as Event;
+
+		if (!event.standard_event) {
+			return;
+		}
+
+		overallStart = parseInt(event.standard_event.timer_start || "0", 10) || null;
+		meStart = parseInt(event.standard_event.active_start || "0", 10) || null;
+	});
+
+	const width = 10;
+
+	const statusDiv = create(prnt, "div", "Status: ".padStart(width, "\u00a0"));
+	const status = create(statusDiv, "span");
+
+	messageBus.addEventListener("open", () => {
+		status.innerText = "\u{1f7e2}";
+	});
+
+	messageBus.addEventListener("error", () => {
+		status.innerText = "\u{1f534}";
+	});
+
+	const clockDiv = create(prnt, "div", "Clock: ".padStart(width, "\u00a0"));
+	const clock = create(clockDiv, "span");
+
+	const overallDiv = create(prnt, "div", "Overall: ".padStart(width, "\u00a0"));
+	const overall = create(overallDiv, "span");
+
+	const meDiv = create(prnt, "div", "Me: ".padStart(width, "\u00a0"));
+	const me = create(meDiv, "span");
+
+	if (adminSecret) {
+		const reset = create(overallDiv, "span", "↺", ["action"]);
+		reset.addEventListener("click", () => {
+			const req: ResetRequest = {
+				room_id: roomId,
+				admin_secret: adminSecret,
+			};
+
+			fetch("api/reset", {
+				method: "POST",
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(req),
+			});
+		});
+	}
+
+	setInterval(() => {
+		const now = new Date();
+		clock.innerText = `${now.getHours().toString().padStart(2, "0")}h${now.getMinutes().toString().padStart(2, "0")}m${now.getSeconds().toString().padStart(2, "0")}s`;
+
+		if (overallStart) {
+			const o = Math.trunc(now.getTime() / 1000 - overallStart);
+			overall.innerText = `${Math.trunc(o / 3600).toString().padStart(2, "0")}h${Math.trunc(o % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(o % 60).toString().padStart(2, "0")}s`;
+		} else {
+			overall.innerText = "";
+		}
+
+		if (meStart) {
+			const d = Math.trunc(now.getTime() / 1000 - meStart);
+			me.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+		} else {
+			me.innerText = "";
+		}
+	}, 250);
+}
+
+function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement) {
 	const table = create(prnt, "table", undefined, ["users"]) as HTMLTableElement;
 	const head = create(table, "thead");
 	const head1 = create(head, "tr");
 	create(head1, "th", "Name");
+	create(head1, "th", "Active Time");
 	create(head1, "th", "👑");
 	create(head1, "th", "👆");
+	create(head1, "th", "🌟");
 
 	const body = create(table, "tbody");
 
 	const rows: Map<string, HTMLTableRowElement> = new Map();
 
-	es.addEventListener("message", (e) => {
+	messageBus.addEventListener("open", () => {
+		rows.clear();
+		body.innerHTML = "";
+	});
+
+	messageBus.addEventListener("message", (ev) => {
+		const e = ev as MessageEvent;
 		const event = JSON.parse(e.data) as Event;
 
 		if (!event.admin_event) {
@@ -202,11 +341,11 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 		}
 
 		const client = event.admin_event.client;
-		let row = rows.get(client.public_client_id);
+		let row = rows.get(client.client_id);
 
 		if (row) {
 			row.remove();
-			rows.delete(client.public_client_id);
+			rows.delete(client.client_id);
 		}
 
 		if (event.admin_event.remove) {
@@ -215,6 +354,8 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 
 		row = document.createElement("tr") as HTMLTableRowElement;
 		row.dataset.name = client.name;
+		row.dataset.active = client.active ? "active" : "";
+		row.dataset.activeStart = client.active_start;
 
 		let before = null;
 		for (const iter of body.children) {
@@ -227,6 +368,7 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 		body.insertBefore(row, before);
 
 		create(row, "td", client.name);
+		create(row, "td");
 
 		const adminCell = create(row, "td", "👑", client.admin ? ["admin", "enable"] : ["admin"]) as HTMLTableCellElement;
 		adminCell.addEventListener("click", () => {
@@ -234,28 +376,71 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 				if (!confirm(`Grant admin access to ${client.name}?`)) {
 					return;
 				}
-				admin(roomId, adminSecret, client.public_client_id);
+				admin(roomId, adminSecret, client.client_id);
 			}
 		});
 
 		const activeCell = create(row, "td", "👆", client.active ? ["active", "enable"] : ["active"]) as HTMLTableCellElement;
 		activeCell.addEventListener("click", () => {
-			active(roomId, adminSecret, client.public_client_id, !activeCell.classList.contains("enable"));
+			active(roomId, adminSecret, client.client_id, !activeCell.classList.contains("enable"), false);
 		});
 
-		rows.set(client.public_client_id, row);
+		const soloCell = create(row, "td", "🌟", ["solo"]) as HTMLTableCellElement;
+		soloCell.addEventListener("click", () => {
+			if (soloCell.classList.contains("enable")) {
+				active(roomId, adminSecret, client.client_id, false, false);
+			} else {
+				active(roomId, adminSecret, client.client_id, true, true);
+			}
+		});
+
+		rows.set(client.client_id, row);
+
+		setSolo(rows);
 	});
+
+	setInterval(() => {
+		const now = new Date();
+
+		for (const row of rows.values()) {
+			const cell = row.children[1] as HTMLTableCellElement;
+			const as = parseInt(row.dataset.activeStart || "0", 10) || null;
+			if (as) {
+				const d = Math.trunc(now.getTime() / 1000 - as);
+				cell.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+			}
+		}
+	}, 250);
 }
 
-function active(roomId: string, adminSecret: string, publicClientId: string, val: boolean) {
+function setSolo(rows: Map<string, HTMLTableRowElement>) {
+	let activeCount = 0;
+
+	for (const row of rows.values()) {
+		if (row.dataset.active === "active") {
+			activeCount++;
+		}
+	}
+
+	for (const row of rows.values()) {
+		if (activeCount === 1 && row.dataset.active === "active") {
+			row.children[4].classList.add("enable");
+		} else {
+			row.children[4].classList.remove("enable");
+		}
+	}
+}
+
+function active(roomId: string, adminSecret: string, clientId: string, val: boolean, solo: boolean) {
 	const req: ActiveRequest = {
 		room_id: roomId,
 		admin_secret: adminSecret,
-		public_client_id: publicClientId,
+		client_id: clientId,
 		active: val,
+		solo,
 	};
 
-	fetch("/api/active", {
+	fetch("api/active", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -264,14 +449,14 @@ function active(roomId: string, adminSecret: string, publicClientId: string, val
 	})
 }
 
-function admin(roomId: string, adminSecret: string, publicClientId: string) {
+function admin(roomId: string, adminSecret: string, clientId: string) {
 	const req: AdminRequest = {
 		room_id: roomId,
 		admin_secret: adminSecret,
-		public_client_id: publicClientId,
+		client_id: clientId,
 	};
 
-	fetch("/api/admin", {
+	fetch("api/admin", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -291,7 +476,7 @@ function control(roomId: string, clientId: string, controls: HTMLElement, ctrl: 
 		control: ctrl,
 	};
 
-	fetch("/api/control", {
+	fetch("api/control", {
 		method: "POST",
 		headers: {
 			'Content-Type': 'application/json'
@@ -320,7 +505,7 @@ function remove(roomId: string, clientId: string) {
 		room_id: roomId,
 		client_id: clientId,
 	}
-	navigator.sendBeacon("/api/remove", JSON.stringify(req));
+	navigator.sendBeacon("api/remove", JSON.stringify(req));
 }
 
 function uuid() {

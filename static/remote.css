@@ -42,7 +42,8 @@ tfoot tr {
 }
 
 .admin,
-.active {
+.active,
+.solo {
   cursor: pointer;
   opacity: 0.3;
   user-select: none;
@@ -76,6 +77,16 @@ tfoot tr {
 
 .controls.enable .control-button {
   cursor: pointer;
+}
+
+.action {
+  color: var(--highlight-color);
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.users tbody tr td:nth-child(2) {
+  text-align: right;
 }
 
 .github {

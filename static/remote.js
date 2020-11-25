@@ -1,4 +1,5 @@
 "use strict";
+const messageBus = new EventTarget();
 function main() {
     const url = new URL(location.href);
     if (url.searchParams.has("room")) {
@@ -26,7 +27,7 @@ function renderRoom(roomId) {
     watch(roomId, clientId, adminSecret, prnt);
 }
 function newRoom() {
-    fetch("/api/create", { method: "POST" })
+    fetch("api/create", { method: "POST" })
         .then(resp => resp.json())
         .then(data => {
         const resp = data;
@@ -43,7 +44,7 @@ function announce(roomId, clientId, adminSecret, name) {
         admin_secret: adminSecret,
         name: name.value,
     };
-    fetch("/api/announce", {
+    fetch("api/announce", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -52,22 +53,54 @@ function announce(roomId, clientId, adminSecret, name) {
     })
         .then(() => {
         setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
+    })
+        .catch(() => {
+        setTimeout(() => announce(roomId, clientId, adminSecret, name), 5000);
     });
 }
 function watch(roomId, clientId, adminSecret, prnt) {
-    const url = new URL("/api/watch", location.href);
+    const url = new URL("api/watch", location.href);
     url.searchParams.set("room_id", roomId);
     url.searchParams.set("client_id", clientId);
     if (adminSecret) {
         url.searchParams.set("admin_secret", adminSecret);
     }
-    const es = new EventSource(url.toString());
-    renderControls(roomId, clientId, adminSecret, prnt, es);
+    createEventSource(url);
+    renderControls(roomId, clientId, adminSecret, prnt);
+    renderTimers(roomId, adminSecret, prnt);
     if (adminSecret) {
-        renderAdmin(roomId, adminSecret, prnt, es);
+        renderAdmin(roomId, adminSecret, prnt);
     }
 }
-function renderControls(roomId, clientId, adminSecret, prnt, es) {
+function createEventSource(url) {
+    const es = new EventSource(url.toString());
+    let lastMessage = performance.now();
+    const intId = setInterval(() => {
+        if (performance.now() - lastMessage > 10000) {
+            console.warn("timeout");
+            es.dispatchEvent(new Event("error"));
+        }
+    }, 1000);
+    es.addEventListener("open", () => {
+        console.info("connected");
+        messageBus.dispatchEvent(new Event("open"));
+    });
+    es.addEventListener("message", (e) => {
+        messageBus.dispatchEvent(new MessageEvent("message", {
+            data: e.data,
+            lastEventId: e.lastEventId,
+        }));
+        lastMessage = performance.now();
+    });
+    es.addEventListener("error", () => {
+        console.warn("disconnected");
+        es.close();
+        clearInterval(intId);
+        setTimeout(() => createEventSource(url), 3000);
+        messageBus.dispatchEvent(new Event("error"));
+    });
+}
+function renderControls(roomId, clientId, adminSecret, prnt) {
     const controls = create(prnt, "div", undefined, ["controls"]);
     const left = create(controls, "span", "<<<", ["control-button"]);
     left.addEventListener("click", () => control(roomId, clientId, controls, "left"));
@@ -84,7 +117,8 @@ function renderControls(roomId, clientId, adminSecret, prnt, es) {
                 break;
         }
     });
-    es.addEventListener("message", (e) => {
+    messageBus.addEventListener("message", (ev) => {
+        const e = ev;
         const event = JSON.parse(e.data);
         if (!event.standard_event) {
             return;
@@ -101,31 +135,102 @@ function renderControls(roomId, clientId, adminSecret, prnt, es) {
         }
     });
 }
-function renderAdmin(roomId, adminSecret, prnt, es) {
+function renderTimers(roomId, adminSecret, prnt) {
+    let overallStart = null;
+    let meStart = null;
+    messageBus.addEventListener("message", (ev) => {
+        const e = ev;
+        const event = JSON.parse(e.data);
+        if (!event.standard_event) {
+            return;
+        }
+        overallStart = parseInt(event.standard_event.timer_start || "0", 10) || null;
+        meStart = parseInt(event.standard_event.active_start || "0", 10) || null;
+    });
+    const width = 10;
+    const statusDiv = create(prnt, "div", "Status: ".padStart(width, "\u00a0"));
+    const status = create(statusDiv, "span");
+    messageBus.addEventListener("open", () => {
+        status.innerText = "\u{1f7e2}";
+    });
+    messageBus.addEventListener("error", () => {
+        status.innerText = "\u{1f534}";
+    });
+    const clockDiv = create(prnt, "div", "Clock: ".padStart(width, "\u00a0"));
+    const clock = create(clockDiv, "span");
+    const overallDiv = create(prnt, "div", "Overall: ".padStart(width, "\u00a0"));
+    const overall = create(overallDiv, "span");
+    const meDiv = create(prnt, "div", "Me: ".padStart(width, "\u00a0"));
+    const me = create(meDiv, "span");
+    if (adminSecret) {
+        const reset = create(overallDiv, "span", "↺", ["action"]);
+        reset.addEventListener("click", () => {
+            const req = {
+                room_id: roomId,
+                admin_secret: adminSecret,
+            };
+            fetch("api/reset", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(req),
+            });
+        });
+    }
+    setInterval(() => {
+        const now = new Date();
+        clock.innerText = `${now.getHours().toString().padStart(2, "0")}h${now.getMinutes().toString().padStart(2, "0")}m${now.getSeconds().toString().padStart(2, "0")}s`;
+        if (overallStart) {
+            const o = Math.trunc(now.getTime() / 1000 - overallStart);
+            overall.innerText = `${Math.trunc(o / 3600).toString().padStart(2, "0")}h${Math.trunc(o % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(o % 60).toString().padStart(2, "0")}s`;
+        }
+        else {
+            overall.innerText = "";
+        }
+        if (meStart) {
+            const d = Math.trunc(now.getTime() / 1000 - meStart);
+            me.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+        }
+        else {
+            me.innerText = "";
+        }
+    }, 250);
+}
+function renderAdmin(roomId, adminSecret, prnt) {
     const table = create(prnt, "table", undefined, ["users"]);
     const head = create(table, "thead");
     const head1 = create(head, "tr");
     create(head1, "th", "Name");
+    create(head1, "th", "Active Time");
     create(head1, "th", "👑");
     create(head1, "th", "👆");
+    create(head1, "th", "🌟");
     const body = create(table, "tbody");
     const rows = new Map();
-    es.addEventListener("message", (e) => {
+    messageBus.addEventListener("open", () => {
+        rows.clear();
+        body.innerHTML = "";
+    });
+    messageBus.addEventListener("message", (ev) => {
+        const e = ev;
         const event = JSON.parse(e.data);
         if (!event.admin_event) {
             return;
         }
         const client = event.admin_event.client;
-        let row = rows.get(client.public_client_id);
+        let row = rows.get(client.client_id);
         if (row) {
             row.remove();
-            rows.delete(client.public_client_id);
+            rows.delete(client.client_id);
         }
         if (event.admin_event.remove) {
             return;
         }
         row = document.createElement("tr");
         row.dataset.name = client.name;
+        row.dataset.active = client.active ? "active" : "";
+        row.dataset.activeStart = client.active_start;
         let before = null;
         for (const iter of body.children) {
             const iterRow = iter;
@@ -136,30 +241,69 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         }
         body.insertBefore(row, before);
         create(row, "td", client.name);
+        create(row, "td");
         const adminCell = create(row, "td", "👑", client.admin ? ["admin", "enable"] : ["admin"]);
         adminCell.addEventListener("click", () => {
             if (!client.admin) {
                 if (!confirm(`Grant admin access to ${client.name}?`)) {
                     return;
                 }
-                admin(roomId, adminSecret, client.public_client_id);
+                admin(roomId, adminSecret, client.client_id);
             }
         });
         const activeCell = create(row, "td", "👆", client.active ? ["active", "enable"] : ["active"]);
         activeCell.addEventListener("click", () => {
-            active(roomId, adminSecret, client.public_client_id, !activeCell.classList.contains("enable"));
+            active(roomId, adminSecret, client.client_id, !activeCell.classList.contains("enable"), false);
         });
-        rows.set(client.public_client_id, row);
+        const soloCell = create(row, "td", "🌟", ["solo"]);
+        soloCell.addEventListener("click", () => {
+            if (soloCell.classList.contains("enable")) {
+                active(roomId, adminSecret, client.client_id, false, false);
+            }
+            else {
+                active(roomId, adminSecret, client.client_id, true, true);
+            }
+        });
+        rows.set(client.client_id, row);
+        setSolo(rows);
     });
+    setInterval(() => {
+        const now = new Date();
+        for (const row of rows.values()) {
+            const cell = row.children[1];
+            const as = parseInt(row.dataset.activeStart || "0", 10) || null;
+            if (as) {
+                const d = Math.trunc(now.getTime() / 1000 - as);
+                cell.innerText = `${Math.trunc(d / 3600).toString().padStart(2, "0")}h${Math.trunc(d % 3600 / 60).toString().padStart(2, "0")}m${Math.trunc(d % 60).toString().padStart(2, "0")}s`;
+            }
+        }
+    }, 250);
 }
-function active(roomId, adminSecret, publicClientId, val) {
+function setSolo(rows) {
+    let activeCount = 0;
+    for (const row of rows.values()) {
+        if (row.dataset.active === "active") {
+            activeCount++;
+        }
+    }
+    for (const row of rows.values()) {
+        if (activeCount === 1 && row.dataset.active === "active") {
+            row.children[4].classList.add("enable");
+        }
+        else {
+            row.children[4].classList.remove("enable");
+        }
+    }
+}
+function active(roomId, adminSecret, clientId, val, solo) {
     const req = {
         room_id: roomId,
         admin_secret: adminSecret,
-        public_client_id: publicClientId,
+        client_id: clientId,
         active: val,
+        solo,
     };
-    fetch("/api/active", {
+    fetch("api/active", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -167,13 +311,13 @@ function active(roomId, adminSecret, publicClientId, val) {
         body: JSON.stringify(req),
     });
 }
-function admin(roomId, adminSecret, publicClientId) {
+function admin(roomId, adminSecret, clientId) {
     const req = {
         room_id: roomId,
         admin_secret: adminSecret,
-        public_client_id: publicClientId,
+        client_id: clientId,
     };
-    fetch("/api/admin", {
+    fetch("api/admin", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -190,7 +334,7 @@ function control(roomId, clientId, controls, ctrl) {
         client_id: clientId,
         control: ctrl,
     };
-    fetch("/api/control", {
+    fetch("api/control", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
@@ -214,7 +358,7 @@ function remove(roomId, clientId) {
         room_id: roomId,
         client_id: clientId,
     };
-    navigator.sendBeacon("/api/remove", JSON.stringify(req));
+    navigator.sendBeacon("api/remove", JSON.stringify(req));
 }
 function uuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
