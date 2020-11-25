@@ -22,14 +22,14 @@ import (
 type activeRequest struct {
 	RoomId         string `json:"room_id"`
 	AdminSecret    string `json:"admin_secret"`
-	PublicClientId string `json:"public_client_id"`
+	ClientId string `json:"client_id"`
 	Active         bool   `json:"active"`
 }
 
 type adminRequest struct {
 	RoomId         string `json:"room_id"`
 	AdminSecret    string `json:"admin_secret"`
-	PublicClientId string `json:"public_client_id"`
+	ClientId string `json:"client_id"`
 }
 
 type resetRequest struct {
@@ -61,13 +61,12 @@ type removeRequest struct {
 }
 
 type client struct {
-	PublicClientId string `json:"public_client_id"`
+	ClientId string `json:"client_id"`
 	Name           string `json:"name"`
 	Admin          bool   `json:"admin"`
 	Active         bool   `json:"active"`
 	ActiveStart    int64  `json:"active_start"`
 
-	clientId  string
 	room      *room
 	lastSeen  time.Time
 	eventChan chan *event
@@ -98,7 +97,6 @@ type room struct {
 	roomId           string
 	timerStart       time.Time
 	clientById       map[string]*client
-	clientByPublicId map[string]*client
 	present          map[*presentState]bool
 }
 
@@ -219,9 +217,9 @@ func active(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := rm.clientByPublicId[req.PublicClientId]
+	c := rm.clientById[req.ClientId]
 	if c == nil {
-		http.Error(w, "invalid public_client_id", http.StatusBadRequest)
+		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
 
@@ -256,9 +254,9 @@ func admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := rm.clientByPublicId[req.PublicClientId]
+	c := rm.clientById[req.ClientId]
 	if c == nil {
-		http.Error(w, "invalid public_client_id", http.StatusBadRequest)
+		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
 
@@ -462,8 +460,7 @@ func (c *client) sendEvent(e *event) {
 }
 
 func (c *client) remove() {
-	delete(c.room.clientById, c.clientId)
-	delete(c.room.clientByPublicId, c.PublicClientId)
+	delete(c.room.clientById, c.ClientId)
 
 	c.room.sendAdminEvent(&adminEvent{
 		Client: c,
@@ -490,7 +487,6 @@ func newRoom(roomId string) *room {
 		roomId:           roomId,
 		timerStart:       time.Now(),
 		clientById:       map[string]*client{},
-		clientByPublicId: map[string]*client{},
 		present:          map[*presentState]bool{},
 	}
 }
@@ -513,12 +509,10 @@ func (rm *room) getClient(clientId string) *client {
 	c := rm.clientById[clientId]
 	if c == nil {
 		c = &client{
-			clientId:       clientId,
-			PublicClientId: uuid.New().String(),
+			ClientId:       clientId,
 			room:           rm,
 		}
 		rm.clientById[clientId] = c
-		rm.clientByPublicId[c.PublicClientId] = c
 
 		rm.sendAdminEvent(&adminEvent{
 			Client: c,

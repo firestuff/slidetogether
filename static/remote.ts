@@ -1,14 +1,14 @@
 interface ActiveRequest {
 	room_id: string;
 	admin_secret: string;
-	public_client_id: string;
+	client_id: string;
 	active: boolean;
 }
 
 interface AdminRequest {
 	room_id: string;
 	admin_secret: string;
-	public_client_id: string;
+	client_id: string;
 }
 
 interface AnnounceRequest {
@@ -57,7 +57,7 @@ interface AdminEvent {
 }
 
 interface Client {
-	public_client_id: string;
+	client_id: string;
 	name: string;
 	admin: boolean;
 	active: boolean;
@@ -285,11 +285,11 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 		}
 
 		const client = event.admin_event.client;
-		let row = rows.get(client.public_client_id);
+		let row = rows.get(client.client_id);
 
 		if (row) {
 			row.remove();
-			rows.delete(client.public_client_id);
+			rows.delete(client.client_id);
 		}
 
 		if (event.admin_event.remove) {
@@ -319,16 +319,16 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 				if (!confirm(`Grant admin access to ${client.name}?`)) {
 					return;
 				}
-				admin(roomId, adminSecret, client.public_client_id);
+				admin(roomId, adminSecret, client.client_id);
 			}
 		});
 
 		const activeCell = create(row, "td", "👆", client.active ? ["active", "enable"] : ["active"]) as HTMLTableCellElement;
 		activeCell.addEventListener("click", () => {
-			active(roomId, adminSecret, client.public_client_id, !activeCell.classList.contains("enable"));
+			active(roomId, adminSecret, client.client_id, !activeCell.classList.contains("enable"));
 		});
 
-		rows.set(client.public_client_id, row);
+		rows.set(client.client_id, row);
 	});
 
 	setInterval(() => {
@@ -345,11 +345,11 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 	}, 250);
 }
 
-function active(roomId: string, adminSecret: string, publicClientId: string, val: boolean) {
+function active(roomId: string, adminSecret: string, clientId: string, val: boolean) {
 	const req: ActiveRequest = {
 		room_id: roomId,
 		admin_secret: adminSecret,
-		public_client_id: publicClientId,
+		client_id: clientId,
 		active: val,
 	};
 
@@ -362,11 +362,11 @@ function active(roomId: string, adminSecret: string, publicClientId: string, val
 	})
 }
 
-function admin(roomId: string, adminSecret: string, publicClientId: string) {
+function admin(roomId: string, adminSecret: string, clientId: string) {
 	const req: AdminRequest = {
 		room_id: roomId,
 		admin_secret: adminSecret,
-		public_client_id: publicClientId,
+		client_id: clientId,
 	};
 
 	fetch("api/admin", {

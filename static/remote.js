@@ -178,10 +178,10 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
             return;
         }
         const client = event.admin_event.client;
-        let row = rows.get(client.public_client_id);
+        let row = rows.get(client.client_id);
         if (row) {
             row.remove();
-            rows.delete(client.public_client_id);
+            rows.delete(client.client_id);
         }
         if (event.admin_event.remove) {
             return;
@@ -206,14 +206,14 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
                 if (!confirm(`Grant admin access to ${client.name}?`)) {
                     return;
                 }
-                admin(roomId, adminSecret, client.public_client_id);
+                admin(roomId, adminSecret, client.client_id);
             }
         });
         const activeCell = create(row, "td", "👆", client.active ? ["active", "enable"] : ["active"]);
         activeCell.addEventListener("click", () => {
-            active(roomId, adminSecret, client.public_client_id, !activeCell.classList.contains("enable"));
+            active(roomId, adminSecret, client.client_id, !activeCell.classList.contains("enable"));
         });
-        rows.set(client.public_client_id, row);
+        rows.set(client.client_id, row);
     });
     setInterval(() => {
         const now = new Date();
@@ -227,11 +227,11 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         }
     }, 250);
 }
-function active(roomId, adminSecret, publicClientId, val) {
+function active(roomId, adminSecret, clientId, val) {
     const req = {
         room_id: roomId,
         admin_secret: adminSecret,
-        public_client_id: publicClientId,
+        client_id: clientId,
         active: val,
     };
     fetch("api/active", {
@@ -242,11 +242,11 @@ function active(roomId, adminSecret, publicClientId, val) {
         body: JSON.stringify(req),
     });
 }
-function admin(roomId, adminSecret, publicClientId) {
+function admin(roomId, adminSecret, clientId) {
     const req = {
         room_id: roomId,
         admin_secret: adminSecret,
-        public_client_id: publicClientId,
+        client_id: clientId,
     };
     fetch("api/admin", {
         method: "POST",
