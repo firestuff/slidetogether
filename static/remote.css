@@ -42,7 +42,8 @@ tfoot tr {
 }
 
 .admin,
-.active {
+.active,
+.solo {
   cursor: pointer;
   opacity: 0.3;
   user-select: none;

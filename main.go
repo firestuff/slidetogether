@@ -20,21 +20,22 @@ import (
 )
 
 type activeRequest struct {
-	RoomId         string `json:"room_id"`
-	AdminSecret    string `json:"admin_secret"`
-	ClientId string `json:"client_id"`
-	Active         bool   `json:"active"`
+	RoomId      string `json:"room_id"`
+	AdminSecret string `json:"admin_secret"`
+	ClientId    string `json:"client_id"`
+	Active      bool   `json:"active"`
+	Solo        bool   `json:"solo"`
 }
 
 type adminRequest struct {
-	RoomId         string `json:"room_id"`
-	AdminSecret    string `json:"admin_secret"`
-	ClientId string `json:"client_id"`
+	RoomId      string `json:"room_id"`
+	AdminSecret string `json:"admin_secret"`
+	ClientId    string `json:"client_id"`
 }
 
 type resetRequest struct {
-	RoomId         string `json:"room_id"`
-	AdminSecret    string `json:"admin_secret"`
+	RoomId      string `json:"room_id"`
+	AdminSecret string `json:"admin_secret"`
 }
 
 type announceRequest struct {
@@ -61,11 +62,11 @@ type removeRequest struct {
 }
 
 type client struct {
-	ClientId string `json:"client_id"`
-	Name           string `json:"name"`
-	Admin          bool   `json:"admin"`
-	Active         bool   `json:"active"`
-	ActiveStart    int64  `json:"active_start"`
+	ClientId    string `json:"client_id"`
+	Name        string `json:"name"`
+	Admin       bool   `json:"admin"`
+	Active      bool   `json:"active"`
+	ActiveStart int64  `json:"active_start"`
 
 	room      *room
 	lastSeen  time.Time
@@ -94,10 +95,10 @@ type controlEvent struct {
 }
 
 type room struct {
-	roomId           string
-	timerStart       time.Time
-	clientById       map[string]*client
-	present          map[*presentState]bool
+	roomId     string
+	timerStart time.Time
+	clientById map[string]*client
+	present    map[*presentState]bool
 }
 
 type presentState struct {
@@ -212,7 +213,7 @@ func active(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.Active = req.Active
+	c.Active = req.Active || req.Solo
 	if c.Active {
 		c.ActiveStart = time.Now().Unix()
 	} else {
@@ -222,6 +223,22 @@ func active(w http.ResponseWriter, r *http.Request) {
 	rm.sendAdminEvent(&adminEvent{
 		Client: c,
 	})
+
+	if req.Solo {
+		for _, iter := range rm.clientById {
+			if iter == c {
+				continue
+			}
+			if iter.Active {
+				iter.Active = false
+				iter.ActiveStart = 0
+				iter.update()
+				rm.sendAdminEvent(&adminEvent{
+					Client: iter,
+				})
+			}
+		}
+	}
 }
 
 func admin(w http.ResponseWriter, r *http.Request) {
@@ -476,9 +493,9 @@ func (c *client) remove() {
 func (c *client) update() {
 	e := &event{
 		StandardEvent: &standardEvent{
-			Active: c.Active,
+			Active:      c.Active,
 			ActiveStart: c.ActiveStart,
-			TimerStart: c.room.timerStart.Unix(),
+			TimerStart:  c.room.timerStart.Unix(),
 		},
 	}
 	if c.Admin {
@@ -489,10 +506,10 @@ func (c *client) update() {
 
 func newRoom(roomId string) *room {
 	return &room{
-		roomId:           roomId,
-		timerStart:       time.Now(),
-		clientById:       map[string]*client{},
-		present:          map[*presentState]bool{},
+		roomId:     roomId,
+		timerStart: time.Now(),
+		clientById: map[string]*client{},
+		present:    map[*presentState]bool{},
 	}
 }
 
@@ -514,8 +531,8 @@ func (rm *room) getClient(clientId string) *client {
 	c := rm.clientById[clientId]
 	if c == nil {
 		c = &client{
-			ClientId:       clientId,
-			room:           rm,
+			ClientId: clientId,
+			room:     rm,
 		}
 		rm.clientById[clientId] = c
 

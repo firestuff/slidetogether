@@ -166,6 +166,7 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
     create(head1, "th", "Active Time");
     create(head1, "th", "👑");
     create(head1, "th", "👆");
+    create(head1, "th", "🌟");
     const body = create(table, "tbody");
     const rows = new Map();
     es.addEventListener("open", () => {
@@ -188,6 +189,7 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         }
         row = document.createElement("tr");
         row.dataset.name = client.name;
+        row.dataset.active = client.active ? "active" : "";
         row.dataset.activeStart = client.active_start;
         let before = null;
         for (const iter of body.children) {
@@ -211,9 +213,19 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         });
         const activeCell = create(row, "td", "👆", client.active ? ["active", "enable"] : ["active"]);
         activeCell.addEventListener("click", () => {
-            active(roomId, adminSecret, client.client_id, !activeCell.classList.contains("enable"));
+            active(roomId, adminSecret, client.client_id, !activeCell.classList.contains("enable"), false);
+        });
+        const soloCell = create(row, "td", "🌟", ["solo"]);
+        soloCell.addEventListener("click", () => {
+            if (soloCell.classList.contains("enable")) {
+                active(roomId, adminSecret, client.client_id, false, false);
+            }
+            else {
+                active(roomId, adminSecret, client.client_id, true, true);
+            }
         });
         rows.set(client.client_id, row);
+        setSolo(rows);
     });
     setInterval(() => {
         const now = new Date();
@@ -227,12 +239,29 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
         }
     }, 250);
 }
-function active(roomId, adminSecret, clientId, val) {
+function setSolo(rows) {
+    let activeCount = 0;
+    for (const row of rows.values()) {
+        if (row.dataset.active === "active") {
+            activeCount++;
+        }
+    }
+    for (const row of rows.values()) {
+        if (activeCount === 1 && row.dataset.active === "active") {
+            row.children[4].classList.add("enable");
+        }
+        else {
+            row.children[4].classList.remove("enable");
+        }
+    }
+}
+function active(roomId, adminSecret, clientId, val, solo) {
     const req = {
         room_id: roomId,
         admin_secret: adminSecret,
         client_id: clientId,
         active: val,
+        solo,
     };
     fetch("api/active", {
         method: "POST",
