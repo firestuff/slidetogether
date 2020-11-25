@@ -1,4 +1,5 @@
 "use strict";
+const messageBus = new EventTarget();
 function main() {
     const url = new URL(location.href);
     if (url.searchParams.has("room")) {
@@ -64,14 +65,32 @@ function watch(roomId, clientId, adminSecret, prnt) {
     if (adminSecret) {
         url.searchParams.set("admin_secret", adminSecret);
     }
-    const es = new EventSource(url.toString());
-    renderControls(roomId, clientId, adminSecret, prnt, es);
-    renderTimers(roomId, adminSecret, prnt, es);
+    createEventSource(url);
+    renderControls(roomId, clientId, adminSecret, prnt);
+    renderTimers(roomId, adminSecret, prnt);
     if (adminSecret) {
-        renderAdmin(roomId, adminSecret, prnt, es);
+        renderAdmin(roomId, adminSecret, prnt);
     }
 }
-function renderControls(roomId, clientId, adminSecret, prnt, es) {
+function createEventSource(url) {
+    const es = new EventSource(url.toString());
+    es.addEventListener("open", () => {
+        messageBus.dispatchEvent(new Event("open"));
+    });
+    es.addEventListener("message", (e) => {
+        messageBus.dispatchEvent(new MessageEvent("message", {
+            data: e.data,
+            lastEventId: e.lastEventId,
+        }));
+    });
+    es.addEventListener("error", () => {
+        console.warn("disconnected");
+        es.close();
+        setTimeout(() => createEventSource(url), 3000);
+        messageBus.dispatchEvent(new Event("error"));
+    });
+}
+function renderControls(roomId, clientId, adminSecret, prnt) {
     const controls = create(prnt, "div", undefined, ["controls"]);
     const left = create(controls, "span", "<<<", ["control-button"]);
     left.addEventListener("click", () => control(roomId, clientId, controls, "left"));
@@ -88,7 +107,8 @@ function renderControls(roomId, clientId, adminSecret, prnt, es) {
                 break;
         }
     });
-    es.addEventListener("message", (e) => {
+    messageBus.addEventListener("message", (ev) => {
+        const e = ev;
         const event = JSON.parse(e.data);
         if (!event.standard_event) {
             return;
@@ -105,10 +125,11 @@ function renderControls(roomId, clientId, adminSecret, prnt, es) {
         }
     });
 }
-function renderTimers(roomId, adminSecret, prnt, es) {
+function renderTimers(roomId, adminSecret, prnt) {
     let overallStart = null;
     let meStart = null;
-    es.addEventListener("message", (e) => {
+    messageBus.addEventListener("message", (ev) => {
+        const e = ev;
         const event = JSON.parse(e.data);
         if (!event.standard_event) {
             return;
@@ -117,6 +138,14 @@ function renderTimers(roomId, adminSecret, prnt, es) {
         meStart = parseInt(event.standard_event.active_start || "0", 10) || null;
     });
     const width = 10;
+    const statusDiv = create(prnt, "div", "Status: ".padStart(width, "\u00a0"));
+    const status = create(statusDiv, "span");
+    messageBus.addEventListener("open", () => {
+        status.innerText = "\u{1f7e2}";
+    });
+    messageBus.addEventListener("error", () => {
+        status.innerText = "\u{1f534}";
+    });
     const clockDiv = create(prnt, "div", "Clock: ".padStart(width, "\u00a0"));
     const clock = create(clockDiv, "span");
     const overallDiv = create(prnt, "div", "Overall: ".padStart(width, "\u00a0"));
@@ -158,7 +187,7 @@ function renderTimers(roomId, adminSecret, prnt, es) {
         }
     }, 250);
 }
-function renderAdmin(roomId, adminSecret, prnt, es) {
+function renderAdmin(roomId, adminSecret, prnt) {
     const table = create(prnt, "table", undefined, ["users"]);
     const head = create(table, "thead");
     const head1 = create(head, "tr");
@@ -169,11 +198,12 @@ function renderAdmin(roomId, adminSecret, prnt, es) {
     create(head1, "th", "🌟");
     const body = create(table, "tbody");
     const rows = new Map();
-    es.addEventListener("open", () => {
+    messageBus.addEventListener("open", () => {
         rows.clear();
         body.innerHTML = "";
     });
-    es.addEventListener("message", (e) => {
+    messageBus.addEventListener("message", (ev) => {
+        const e = ev;
         const event = JSON.parse(e.data);
         if (!event.admin_event) {
             return;

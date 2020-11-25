@@ -65,6 +65,8 @@ interface Client {
 	active_start: string;
 }
 
+const messageBus = new EventTarget();
+
 function main() {
 	const url = new URL(location.href);
 
@@ -143,18 +145,41 @@ function watch(roomId: string, clientId: string, adminSecret: string | null, prn
 	if (adminSecret) {
 		url.searchParams.set("admin_secret", adminSecret);
 	}
-	const es = new EventSource(url.toString());
+	createEventSource(url);
 
-	renderControls(roomId, clientId, adminSecret, prnt, es);
+	renderControls(roomId, clientId, adminSecret, prnt);
 
-	renderTimers(roomId, adminSecret, prnt, es);
+	renderTimers(roomId, adminSecret, prnt);
 
 	if (adminSecret) {
-		renderAdmin(roomId, adminSecret, prnt, es);
+		renderAdmin(roomId, adminSecret, prnt);
 	}
 }
 
-function renderControls(roomId: string, clientId: string, adminSecret: string | null, prnt: HTMLElement, es: EventSource) {
+function createEventSource(url: URL) {
+	const es = new EventSource(url.toString());
+
+	es.addEventListener("open", () => {
+		messageBus.dispatchEvent(new Event("open"));
+	});
+
+	es.addEventListener("message", (e) => {
+		messageBus.dispatchEvent(new MessageEvent("message", {
+			data: e.data,
+			lastEventId: e.lastEventId,
+		}));
+	});
+
+	es.addEventListener("error", () => {
+		console.warn("disconnected");
+		es.close();
+		setTimeout(() => createEventSource(url), 3000);
+
+		messageBus.dispatchEvent(new Event("error"));
+	});
+}
+
+function renderControls(roomId: string, clientId: string, adminSecret: string | null, prnt: HTMLElement) {
 	const controls = create(prnt, "div", undefined, ["controls"]) as HTMLDivElement;
 
   	const left = create(controls, "span", "<<<", ["control-button"]) as HTMLDivElement;
@@ -176,7 +201,8 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 		}
 	});
 
-	es.addEventListener("message", (e) => {
+	messageBus.addEventListener("message", (ev) => {
+		const e = ev as MessageEvent;
 		const event = JSON.parse(e.data) as Event;
 
 		if (!event.standard_event) {
@@ -196,11 +222,12 @@ function renderControls(roomId: string, clientId: string, adminSecret: string | 
 	});
 }
 
-function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElement, es: EventSource) {
+function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElement) {
 	let overallStart: number | null = null;
 	let meStart: number | null = null;
 
-	es.addEventListener("message", (e) => {
+	messageBus.addEventListener("message", (ev) => {
+		const e = ev as MessageEvent;
 		const event = JSON.parse(e.data) as Event;
 
 		if (!event.standard_event) {
@@ -212,6 +239,17 @@ function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElem
 	});
 
 	const width = 10;
+
+	const statusDiv = create(prnt, "div", "Status: ".padStart(width, "\u00a0"));
+	const status = create(statusDiv, "span");
+
+	messageBus.addEventListener("open", () => {
+		status.innerText = "\u{1f7e2}";
+	});
+
+	messageBus.addEventListener("error", () => {
+		status.innerText = "\u{1f534}";
+	});
 
 	const clockDiv = create(prnt, "div", "Clock: ".padStart(width, "\u00a0"));
 	const clock = create(clockDiv, "span");
@@ -260,7 +298,7 @@ function renderTimers(roomId: string, adminSecret: string | null, prnt: HTMLElem
 	}, 250);
 }
 
-function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es: EventSource) {
+function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement) {
 	const table = create(prnt, "table", undefined, ["users"]) as HTMLTableElement;
 	const head = create(table, "thead");
 	const head1 = create(head, "tr");
@@ -274,12 +312,13 @@ function renderAdmin(roomId: string, adminSecret: string, prnt: HTMLElement, es:
 
 	const rows: Map<string, HTMLTableRowElement> = new Map();
 
-	es.addEventListener("open", () => {
+	messageBus.addEventListener("open", () => {
 		rows.clear();
 		body.innerHTML = "";
 	});
 
-	es.addEventListener("message", (e) => {
+	messageBus.addEventListener("message", (ev) => {
+		const e = ev as MessageEvent;
 		const event = JSON.parse(e.data) as Event;
 
 		if (!event.admin_event) {
