@@ -43,6 +43,8 @@ while True:
         for event in client.events():
             parsed = json.loads(event.data)
             control = parsed['control']
+            if control == '':
+                continue
             if control not in ALLOWED_CONTROLS:
                 print(f'INVALID CONTROL: {control}')
                 continue
