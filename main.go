@@ -377,13 +377,16 @@ func present(w http.ResponseWriter, r *http.Request) {
 			delete(room.present, controlChan)
 			close(controlChan)
 			mu.Unlock()
-			return
 
 		case <-ticker.C:
 			writePresentHeartbeat(w, flusher)
 
-		case ctrl := <-controlChan:
-			writePresentEvent(ctrl, w, flusher)
+		case ctrl, ok := <-controlChan:
+			if ok {
+				writePresentEvent(ctrl, w, flusher)
+			} else {
+				return
+			}
 		}
 	}
 }
