@@ -3,23 +3,23 @@
 # To install dependencies:
 # pip3 install requests sseclient-py pyautogui
 
+import argparse
 import json
-import pyautogui
 import requests
 import sseclient
+import subprocess
 import sys
 import time
 import urllib
 
 ALLOWED_CONTROLS = {'left', 'right'}
 
-if len(sys.argv) != 2:
-    print(f'usage: {sys.argv[0]} <url>')
-    sys.exit(1)
+parser = argparse.ArgumentParser(description='slidetogether.io presenter client')
+parser.add_argument('url')
+parser.add_argument('--keynote', action='store_true')
+args = parser.parse_args()
 
-pyautogui.FAILSAFE = False
-
-url = urllib.parse.urlparse(sys.argv[1])
+url = urllib.parse.urlparse(args.url)
 qs = urllib.parse.parse_qs(url.query)
 
 if 'room' not in qs or len(qs['room']) != 1:
@@ -36,6 +36,24 @@ presentUrl = urllib.parse.urlunparse([
     url.fragment,
 ])
 
+if args.keynote:
+    LOOKUP = {
+        'left': 'show previous',
+        'right': 'show next',
+    }
+    def send_key(key):
+        subprocess.run([
+            'osascript',
+            '-e', 'tell application "Keynote"',
+            '-e', LOOKUP[key],
+            '-e', 'end tell',
+        ])
+else:
+    import pyautogui
+    pyautogui.FAILSAFE = False
+    def send_key(key):
+        pyautogui.press(control)
+
 while True:
     try:
         response = requests.get(presentUrl, stream=True)
@@ -49,7 +67,7 @@ while True:
                 print(f'INVALID CONTROL: {control}')
                 continue
             print(control)
-            pyautogui.press(control)
+            send_key(control)
     except Exception as e:
         print(e)
         time.sleep(2)
