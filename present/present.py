@@ -7,8 +7,6 @@ import argparse
 import json
 import requests
 import sseclient
-import subprocess
-import sys
 import time
 import urllib
 
@@ -23,7 +21,7 @@ url = urllib.parse.urlparse(args.url)
 qs = urllib.parse.parse_qs(url.query)
 
 if 'room' not in qs or len(qs['room']) != 1:
-    print(f'invalid url: {sys.argv[1]}')
+    print(f'invalid url: {args.url}')
 
 room = qs['room'][0]
 
@@ -37,6 +35,7 @@ presentUrl = urllib.parse.urlunparse([
 ])
 
 if args.keynote:
+    import subprocess
     LOOKUP = {
         'left': 'show previous',
         'right': 'show next',
