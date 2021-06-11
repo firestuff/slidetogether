@@ -70,8 +70,8 @@ tfoot tr {
   user-select: none;
 }
 
-.control-button:active {
-  background: var(--subtle-color);
+.controls.enable .control-button:active {
+  background: var(--highlight-color);
   transition: none;
 }
 

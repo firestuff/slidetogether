@@ -558,7 +558,7 @@ func (rm *room) sendAdminEvent(ae *adminEvent) {
 }
 
 func (rm *room) sendControlEvent(ce *controlEvent) {
-	for present, _ := range rm.present {
+	for present := range rm.present {
 		present <- ce
 	}
 }
