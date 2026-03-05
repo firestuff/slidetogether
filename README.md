@@ -1,3 +1,9 @@
+# MOVED
+
+This repository has moved to [https://g.fc.run/misc/slidetogether](https://g.fc.run/misc/slidetogether)
+
+---
+
 ## No More "Next Slide Please"
 
 [slidetogether.io](https://slidetogether.io/) is a service for controlling a single presentation from multiple remote computers. Think of is as a presentation remote that works across the Internet.
